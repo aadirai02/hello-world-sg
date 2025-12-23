@@ -67,8 +67,8 @@ jobs:
     - name: Evaluate Trivy results
       id: gate
       run: |
-        CRITICAL_COUNT=$(jq '[.[].Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy.json)
-        HIGH_COUNT=$(jq '[.[].Results[].Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy.json)
+        CRITICAL_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy.json)
+        HIGH_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy.json)
 
         echo "Critical: $CRITICAL_COUNT, High: $HIGH_COUNT"
 
