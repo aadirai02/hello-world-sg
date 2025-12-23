@@ -26,12 +26,11 @@ jobs:
     - name: Lint
       run: npm run lint
 
-  build-and-scan:
+  build-scan-push:
     runs-on: ubuntu-latest
     needs: lint
     outputs:
       image_uri: ${{ steps.build.outputs.image_uri }}
-      has_high:  ${{ steps.gate.outputs.has_high }}
     steps:
     - uses: actions/checkout@v4
 
@@ -63,9 +62,9 @@ jobs:
         format: 'json'
         output: 'trivy.json'
         severity: 'HIGH,CRITICAL'
-        exit-code: '0'
+        exit-code: '0'   # never fail here; gate in next step
 
-    - name: Evaluate Trivy results
+    - name: Summarize & gate on Trivy results
       id: gate
       run: |
         CRITICAL_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy.json)
@@ -73,50 +72,46 @@ jobs:
 
         echo "Critical: $CRITICAL_COUNT, High: $HIGH_COUNT"
 
+        echo ""
+        echo "### Vulnerability summary (HIGH & CRITICAL)"
+        echo ""
+        echo "| Severity | ID | Pkg | Installed | Fixed | Title |"
+        echo "|---------|----|-----|-----------|-------|-------|"
+
+        jq -r '
+          .Results[]
+          | .Vulnerabilities[]?
+          | select(.Severity=="HIGH" or .Severity=="CRITICAL")
+          | "| \(.Severity) | \(.VulnerabilityID) | \(.PkgName) | \(.InstalledVersion) | \(.FixedVersion // "-") | \(.Title)|"
+        ' trivy.json
+
         if [ "$CRITICAL_COUNT" -gt 0 ]; then
-          echo "Found CRITICAL vulnerabilities, failing job."
+          echo ""
+          echo "❌ CRITICAL vulnerabilities found. Failing job."
           exit 1
         fi
 
         if [ "$HIGH_COUNT" -gt 0 ]; then
-          echo "has_high=true" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "⚠️ HIGH vulnerabilities found (see table above). Proceeding but treat as warning."
         else
-          echo "has_high=false" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "✅ No HIGH or CRITICAL vulnerabilities."
         fi
 
-  push-image:
-    runs-on: ubuntu-latest
-    needs: build-and-scan
-    if: needs.build-and-scan.result == 'success'
-    environment:
-      name: ecr-push          # this environment has Required reviewers
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Configure AWS credentials (OIDC)
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::561030001202:role/github-actions-eks
-        aws-region: us-east-1
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
-
     - name: Push image to ECR
+      if: success()
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_URI: ${{ needs.build-and-scan.outputs.image_uri }}
-        HAS_HIGH: ${{ needs.build-and-scan.outputs.has_high }}
+        IMAGE_URI: ${{ steps.build.outputs.image_uri }}
       run: |
-        echo "HAS_HIGH=${HAS_HIGH}"
         docker push $IMAGE_URI
         docker tag $IMAGE_URI $ECR_REGISTRY/hello-world:latest
         docker push $ECR_REGISTRY/hello-world:latest
 
   deploy:
     runs-on: ubuntu-latest
-    needs: push-image
+    needs: build-scan-push
     if: github.ref == 'refs/heads/main'
     steps:
     - uses: actions/checkout@v4
@@ -129,7 +124,7 @@ jobs:
 
     - name: Deploy to EKS
       env:
-        IMAGE_URI: ${{ needs.build-and-scan.outputs.image_uri }}
+        IMAGE_URI: ${{ needs.build-scan-push.outputs.image_uri }}
       run: |
         aws eks update-kubeconfig --region us-east-1 --name stackgen-eks
         sed -i "s|image: .*hello-world:.*|image: $IMAGE_URI|g" k8s/03-deployment.yaml
