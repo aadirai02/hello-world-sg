@@ -26,7 +26,7 @@ jobs:
     - name: Lint
       run: npm run lint
 
-build-and-scan:
+  build-and-scan:                # <‑ was missing 2-space indent before
     runs-on: ubuntu-latest
     needs: lint
     outputs:
@@ -54,7 +54,7 @@ build-and-scan:
         docker tag $ECR_REGISTRY/hello-world:$IMAGE_TAG $ECR_REGISTRY/hello-world:latest
         echo "image_uri=$ECR_REGISTRY/hello-world:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Trivy scan 
+    - name: Trivy scan
       id: trivy
       uses: aquasecurity/trivy-action@master
       with:
@@ -62,7 +62,7 @@ build-and-scan:
         format: 'json'
         output: 'trivy.json'
         severity: 'HIGH,CRITICAL'
-        exit-code: '0'              
+        exit-code: '0'
 
     - name: Evaluate Trivy results
       id: gate
@@ -73,7 +73,7 @@ build-and-scan:
         echo "Critical: $CRITICAL_COUNT, High: $HIGH_COUNT"
 
         if [ "$CRITICAL_COUNT" -gt 0 ]; then
-          echo "❌ Found CRITICAL vulnerabilities, failing job."
+          echo "Found CRITICAL vulnerabilities, failing job."
           exit 1
         fi
 
@@ -86,7 +86,7 @@ build-and-scan:
     - name: Wait for manual approval (HIGH only)
       if: steps.gate.outputs.has_high == 'true'
       run: |
-        echo "⚠️ HIGH vulnerabilities found."
+        echo "HIGH vulnerabilities found."
         echo "Review trivy.json in the Actions log, then approve this step to continue."
         read -p "Type 'yes' to approve pushing this image: " ANSWER
         if [ "$ANSWER" != "yes" ]; then
@@ -103,7 +103,6 @@ build-and-scan:
         docker push $IMAGE_URI
         docker tag $IMAGE_URI $ECR_REGISTRY/hello-world:latest
         docker push $ECR_REGISTRY/hello-world:latest
-
 
   deploy:
     runs-on: ubuntu-latest
