@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-world
+  labels:
+    app: hello-world
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-world
+  template:
+    metadata:
+      labels:
+        app: hello-world
+    spec:
+      securityContext:
+        fsGroup: 1000  # ONLY here, at pod level
+      containers:
+      - name: hello-world
+        image: 561030001202.dkr.ecr.us-east-1.amazonaws.com/hello-world:v1-logs
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: LOG_DIR
+          value: "/var/log/app"
+        volumeMounts:
+        - name: app-logs
+          mountPath: /var/log/app
+        securityContext:
+          runAsUser: 1000   # Only these two at container level
+          runAsGroup: 1000
+        # ... probes unchanged
+      volumes:
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: hello-world-logs
+
