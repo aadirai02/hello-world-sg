@@ -54,7 +54,7 @@ jobs:
         docker tag $ECR_REGISTRY/hello-world:$IMAGE_TAG $ECR_REGISTRY/hello-world:latest
         echo "image_uri=$ECR_REGISTRY/hello-world:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    - name: Trivy scan (JSON)
+    - name: Trivy scan
       id: trivy
       uses: aquasecurity/trivy-action@master
       with:
@@ -64,7 +64,7 @@ jobs:
         severity: 'HIGH,CRITICAL'
         exit-code: '0'   # never fail here; gate in next step
 
-    - name: Summarize & gate on Trivy results
+    - name: Summarize Trivy results
       id: gate
       run: |
         CRITICAL_COUNT=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy.json)
