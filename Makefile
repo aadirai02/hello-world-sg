@@ -1,0 +1,99 @@
+# StackGen DevOps Assignment Makefile
+# Usage: make all | make infra | make deploy | make destroy
+
+AWS_REGION ?= us-east-1
+EKS_CLUSTER ?= stackgen-eks
+NAMESPACE ?= stackgen
+TF_DIR ?= terraform
+K8S_DIR ?= k8s
+AWS_ACCOUNT_ID ?= 561030001202
+ECR_REPO ?= hello-world
+ECR_URL ?= $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/$(ECR_REPO)
+IMAGE_TAG ?= latest
+
+.PHONY: all infra build-push deploy destroy clean
+
+all: infra build-push deploy
+
+infra:
+	@echo "🚀 Applying Terraform infrastructure..."
+	cd $(TF_DIR) && terraform init
+	cd $(TF_DIR) && terraform apply -auto-approve
+	@echo "🔄 Updating kubeconfig..."
+	aws eks update-kubeconfig --region $(AWS_REGION) --name $(EKS_CLUSTER)
+	@echo "✅ Infrastructure deployed!"
+
+build-push:
+	@echo "🐳 Building and pushing Docker image..."
+	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(ECR_URL)
+	docker build -t $(ECR_URL):$(IMAGE_TAG) .
+	docker push $(ECR_URL):$(IMAGE_TAG)
+	@echo "✅ Image pushed: $(ECR_URL):$(IMAGE_TAG)"
+
+deploy: kubeconfig namespace k8s-deploy
+	@echo "✅ Deployment complete! Check LoadBalancer: kubectl get svc -n $(NAMESPACE)"
+
+kubeconfig:
+	@echo "🔌 Updating kubeconfig for EKS cluster..."
+	aws eks update-kubeconfig --region $(AWS_REGION) --name $(EKS_CLUSTER)
+	@echo "⏳ Waiting for EKS endpoint DNS propagation..."
+	@sleep 10
+	@echo "✅ Kubeconfig ready! Testing connection..."
+	@kubectl get nodes || (echo "❌ EKS not ready yet, wait 2min and retry"; exit 1)
+
+namespace:
+	@echo "🏷️ Creating namespace: $(NAMESPACE)"
+	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+
+k8s-deploy:
+	@echo "📦 Deploying Kubernetes resources to namespace: $(NAMESPACE)..."
+	sed -i "s|image: .*hello-world:.*|image: $(ECR_URL):$(IMAGE_TAG)|g" $(K8S_DIR)/03-deployment.yaml
+	kubectl apply -f $(K8S_DIR)/
+	@echo "⏳ Waiting for rollout..."
+	kubectl rollout status deployment/hello-world -n $(NAMESPACE) --timeout=300s
+	@echo "🌐 LoadBalancer URL:"
+	kubectl get svc hello-world-lb -n $(NAMESPACE) -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+
+destroy: k8s-destroy ecr-cleanup terraform-destroy
+	@echo "✅ Complete destruction successful!"
+
+k8s-destroy:
+	@echo "💥 Destroying Kubernetes resources..."
+	kubectl delete all --all -n $(NAMESPACE) --force --grace-period=0 || true
+	kubectl patch pvc hello-world-logs -n $(NAMESPACE) -p '{"metadata":{"finalizers":null}}' || true
+	kubectl delete pvc hello-world-logs -n $(NAMESPACE) --force --grace-period=0 || true
+	kubectl delete namespace $(NAMESPACE) --force --grace-period=0 || true
+
+ecr-cleanup:
+	@echo "🗑️  Cleaning ALL ECR repository images..."
+	aws ecr list-images \
+		--region $(AWS_REGION) \
+		--repository-name $(ECR_REPO) \
+		--query 'imageIds[*].[imageDigest,imageTag]' \
+		--output text | while read digest tag; do \
+			if [ -n "$$tag" ]; then \
+				echo "🗑️  Deleting image: $$tag ($$digest)"; \
+				aws ecr delete-image \
+					--region $(AWS_REGION) \
+					--repository-name $(ECR_REPO) \
+					--image-tag "$$tag" \
+					--force || true; \
+			else \
+				echo "🗑️  Deleting untagged image: $$digest"; \
+				aws ecr batch-delete-image \
+					--region $(AWS_REGION) \
+					--repository-name $(ECR_REPO) \
+					--image-ids imageDigest=$$digest || true; \
+			fi; \
+		done
+	@echo "✅ ECR repository completely cleaned!"
+
+terraform-destroy:
+	@echo "🔥 Destroying Terraform infrastructure..."
+	cd $(TF_DIR) && terraform destroy -auto-approve
+
+clean:
+	@echo "🧹 Cleaning local Terraform state..."
+	rm -rf $(TF_DIR)/.terraform* $(TF_DIR)/terraform.tfstate*
+	@echo "✅ Clean complete!"
+
