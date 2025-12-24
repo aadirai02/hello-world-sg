@@ -25,7 +25,9 @@ USER node
 
 # Copy built node_modules and application code from the builder stage
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
-COPY --chown=node:node . .
+#COPY --chown=node:node . .
+COPY --chown=node:node server.js ./server.js
+COPY --chown=node:node eslint.config.js ./eslint.config.js
 
 # Expose the port the app runs on
 EXPOSE 3000

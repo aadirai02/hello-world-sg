@@ -2,7 +2,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.8.4"
 
-  cluster_name    = "stackgen-eks"
+  cluster_name    = var.k8s_cluster_name
   cluster_version = "1.33"
 
   vpc_id     = module.vpc.vpc_id
@@ -36,7 +36,7 @@ module "eks" {
 
   access_entries = {
     aaditya = {
-      principal_arn = "arn:aws:iam::561030001202:user/aaditya"
+      principal_arn = "arn:aws:iam::${var.aws_account_id}:user/${var.developer_user_name}"
 
       policy_associations = {
         cluster_admin = {

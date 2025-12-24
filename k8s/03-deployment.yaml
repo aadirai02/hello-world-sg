@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-world
-  namespace: stackgen
+  namespace: ${K8S_NAMESPACE}
   labels:
     app: hello-world
 spec:
@@ -19,7 +19,7 @@ spec:
         fsGroup: 1000  # ONLY here, at pod level
       containers:
       - name: hello-world
-        image: 561030001202.dkr.ecr.us-east-1.amazonaws.com/hello-world:latest
+        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000

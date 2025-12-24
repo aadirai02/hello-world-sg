@@ -27,7 +27,7 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:aadirai02/hello-world:*"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_owner}/${var.github_repo}:*"
           }
         }
       }
@@ -74,7 +74,7 @@ resource "aws_iam_role_policy" "github_eks" {
         Action = [
           "eks:DescribeCluster"
         ]
-        Resource = "arn:aws:eks:us-east-1:561030001202:cluster/stackgen-eks"
+        Resource = "arn:aws:eks:${var.aws_region}:${var.aws_account_id}:cluster/${var.k8s_cluster_name}"
       }
     ]
   })

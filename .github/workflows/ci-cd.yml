@@ -8,6 +8,13 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPO: ${{ vars.ECR_REPO }}
+  K8S_CLUSTER_NAME: ${{ vars.K8S_CLUSTER_NAME }}
+  K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -37,8 +44,8 @@ jobs:
     - name: Configure AWS credentials (OIDC)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: arn:aws:iam::561030001202:role/github-actions-eks
-        aws-region: us-east-1
+        role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-eks
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -49,10 +56,11 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: "${{ github.run_number }}"
+        ECR_REPO: ${{ env.ECR_REPO }}
       run: |
-        docker build --no-cache -t $ECR_REGISTRY/hello-world:$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/hello-world:$IMAGE_TAG $ECR_REGISTRY/hello-world:latest
-        echo "image_uri=$ECR_REGISTRY/hello-world:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        docker build --no-cache -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO:latest
+        echo "image_uri=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
     - name: Trivy scan
       id: trivy
@@ -104,10 +112,11 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_URI: ${{ steps.build.outputs.image_uri }}
+        ECR_REPO: ${{ env.ECR_REPO }}
       run: |
         docker push $IMAGE_URI
-        docker tag $IMAGE_URI $ECR_REGISTRY/hello-world:latest
-        docker push $ECR_REGISTRY/hello-world:latest
+        docker tag $IMAGE_URI $ECR_REGISTRY/$ECR_REPO:latest
+        docker push $ECR_REGISTRY/$ECR_REPO:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -119,16 +128,19 @@ jobs:
     - name: Configure AWS credentials (OIDC)
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: arn:aws:iam::561030001202:role/github-actions-eks
-        aws-region: us-east-1
+        role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-actions-eks
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Deploy to EKS
       env:
         IMAGE_URI: ${{ needs.build-scan-push.outputs.image_uri }}
+        AWS_REGION: ${{ env.AWS_REGION }}
+        K8S_CLUSTER_NAME: ${{ env.K8S_CLUSTER_NAME }}
+        K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
       run: |
-        aws eks update-kubeconfig --region us-east-1 --name stackgen-eks
+        aws eks update-kubeconfig --region "$AWS_REGION" --name "$K8S_CLUSTER_NAME"
         sed -i "s|image: .*hello-world:.*|image: $IMAGE_URI|g" k8s/03-deployment.yaml
-        kubectl apply -f k8s/
-        kubectl rollout status deployment/hello-world -n stackgen --timeout=300s
-        kubectl get svc hello-world-lb -n stackgen -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        kubectl apply -f k8s/ -n "$K8S_NAMESPACE"
+        kubectl rollout status deployment/hello-world -n "$K8S_NAMESPACE" --timeout=300s
+        kubectl get svc hello-world-lb -n "$K8S_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 

@@ -19,5 +19,5 @@ output "ecr_repository_url" {
 }
 
 output "update_kubeconfig_command" {
-  value = "aws eks update-kubeconfig --region us-east-1 --name ${module.eks.cluster_name}"
+  value = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
