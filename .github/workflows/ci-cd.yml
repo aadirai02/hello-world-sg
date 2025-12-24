@@ -134,23 +134,34 @@ jobs:
     - name: Deploy to EKS
       env:
         IMAGE_URI: ${{ needs.build-scan-push.outputs.image_uri }}
+        AWS_ACCOUNT_ID: ${{ env.AWS_ACCOUNT_ID }}
         AWS_REGION: ${{ env.AWS_REGION }}
         K8S_CLUSTER_NAME: ${{ env.K8S_CLUSTER_NAME }}
         K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
         ECR_REPO: ${{ env.ECR_REPO }}
       run: |
-        aws eks update-kubeconfig --region "$AWS_REGION" --name "$K8S_CLUSTER_NAME"
+        set -euo pipefail
 
+        echo "Updating kubeconfig"
+        aws eks update-kubeconfig \
+          --region "$AWS_REGION" \
+          --name "$K8S_CLUSTER_NAME"
+
+        echo "Injecting image into deployment manifest"
         sed -i "s|image: .*hello-world:.*|image: $IMAGE_URI|g" k8s/03-deployment.yaml
 
-        AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} \
-        AWS_REGION=${AWS_REGION} \
-        ECR_REPO=${ECR_REPO} \
-        K8S_NAMESPACE=${K8S_NAMESPACE} \
-        find k8s -maxdepth 1 -type f -name '*.yaml' -print0 | \
-          xargs -0 cat | envsubst | kubectl apply -f -
+        echo "Applying Kubernetes manifests in order"
+        for f in k8s/*.yaml; do
+          echo "Applying $f"
+          envsubst < "$f" | kubectl apply -f -
+        done
 
-        kubectl rollout status deployment/hello-world -n "$K8S_NAMESPACE" --timeout=300s
-        kubectl get svc hello-world-lb -n "$K8S_NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        echo "Waiting for rollout"
+        kubectl rollout status deployment/hello-world \
+          -n "$K8S_NAMESPACE" \
+          --timeout=300s
 
-
+        echo "Fetching LoadBalancer endpoint"
+        kubectl get svc hello-world-lb \
+          -n "$K8S_NAMESPACE" \
+          -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
