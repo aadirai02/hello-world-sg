@@ -8,9 +8,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "cross-spawn": "^7.0.5",
-    "express": "^4.18.2",
-    "glob": "^10.5.0"
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "eslint": "^9.39.2"
