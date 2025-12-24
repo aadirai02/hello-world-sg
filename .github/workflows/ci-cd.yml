@@ -114,7 +114,6 @@ jobs:
         ECR_REPO: ${{ env.ECR_REPO }}
       run: |
         docker push $IMAGE_URI
-        docker tag $IMAGE_URI $ECR_REGISTRY/$ECR_REPO:latest
         docker push $ECR_REGISTRY/$ECR_REPO:latest
 
   deploy:
