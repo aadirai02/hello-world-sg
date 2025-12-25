@@ -25,31 +25,31 @@ Once configured, any engineer can fork/clone this repo, adjust a single config f
 
 ---
 
-## 2. Get this code into your own GitHub repo
+## 2. Get this code into your local or vm.
 
-1. **Clone this repo locally**:
+1. **Clone this repo**:
 
     ```bash
     git clone https://github.com/aadirai02/hello-world.git
     cd hello-world
     ```
 
-2. **Create a new empty repo** under your own GitHub account (for example `your-user/hello-world`).
 
-3. **Point the local clone to your new remote**:
+---
+## 3. Terraform IAM + OIDC (high level)
 
-    ```bash
-    git remote remove origin
-    git remote add origin https://github.com/<YOUR_GITHUB_OWNER>/<YOUR_REPO>.git
-    git push -u origin main
-    ```
+The Terraform in `terraform/` will:
 
+- Create a **VPC** and subnets.
+- Create an **EKS cluster** and managed node group.
+- Create an **ECR repository**.
+- Create a **GitHub OIDC provider** and an **IAM role `github-actions-eks`** that GitHub Actions assumes via OIDC.
+
+You do not need to hand‑edit `terraform.tfvars`; the Makefile generates it from `config.env`.
 
 ---
 
-## 3. Configure AWS & GitHub variables
-
-### 3.1. Fill in `config.env`
+## 4. Edit values config.env
 
 Edit `config.env`:
 
@@ -72,38 +72,6 @@ GITHUB_REPO=hello-world
 DEVELOPER_USER_NAME=your-iam-user-name
 
 ```
-
-
-### 3.2. Set GitHub Actions repository variables
-
-In your new GitHub repo:
-
-1. Go to **Settings → Secrets and variables → Actions → Variables**.
-2. Add these **repository variables**, using values matching `config.env`:
-
-    | Name             | Example value      |
-    |------------------|-------------------|
-    | `AWS_ACCOUNT_ID` | `123456789012`    |
-    | `AWS_REGION`     | `us-east-1`       |
-    | `ECR_REPO`       | `hello-world`     |
-    | `K8S_CLUSTER_NAME` | `stackgen-eks`  |
-    | `K8S_NAMESPACE`  | `stackgen`        |
-
-GitHub Actions uses these in `.github/workflows/ci-cd.yml`.
-
----
-
-## 4. Terraform IAM + OIDC (high level)
-
-The Terraform in `terraform/` will:
-
-- Create a **VPC** and subnets.
-- Create an **EKS cluster** and managed node group.
-- Create an **ECR repository**.
-- Create a **GitHub OIDC provider** and an **IAM role `github-actions-eks`** that GitHub Actions assumes via OIDC.
-
-You do not need to hand‑edit `terraform.tfvars`; the Makefile generates it from `config.env`.
-
 ---
 
 ## 5. One‑command setup: `make all`
@@ -148,7 +116,43 @@ a6041e4abaa254911bffba8b3cfc0aba-a24f40341b311ab3.elb.us-east-1.amazonaws.com
 That hostname is the public URL of the app.
 
 ---
+## 6. Push the code into your own GitHub repo
 
+1. **Create a new empty repo** under your own GitHub account (for example `your-user/hello-world`).
+
+2. **Point the local clone to your new remote**:
+
+    ```bash
+    git remote remove origin
+    git remote add origin https://github.com/<YOUR_GITHUB_OWNER>/<YOUR_REPO>.git
+    ```
+
+
+3. Set GitHub Actions repository variables
+
+In your new GitHub repo:
+
+1. Go to **Settings → Secrets and variables → Actions → Variables**.
+2. Add these **repository variables**, using values matching `config.env`:
+
+    | Name             | Example value      |
+    |------------------|-------------------|
+    | `AWS_ACCOUNT_ID` | `123456789012`    |
+    | `AWS_REGION`     | `us-east-1`       |
+    | `ECR_REPO`       | `hello-world`     |
+    | `K8S_CLUSTER_NAME` | `stackgen-eks`  |
+    | `K8S_NAMESPACE`  | `stackgen`        |
+
+GitHub Actions uses these in `.github/workflows/ci-cd.yml`.
+
+4. Push the code in your github repo which will also trigger pipeline
+
+    ```bash
+    git push -u origin main
+    ```
+
+
+---
 ## 6. CI/CD pipeline behavior
 
 The workflow `.github/workflows/ci-cd.yml` implements CI/CD:
@@ -188,4 +192,11 @@ To reuse this setup in another AWS account and GitHub repo:
 
 
 
+
+## 8. Destroy everything 
+ It will destroy every k8 resources and infra created by tf.
+ 
+    ```bash
+    make destroy
+    ```
 
