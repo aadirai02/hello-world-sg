@@ -30,7 +30,7 @@ Once configured, any engineer can fork/clone this repo, adjust a single config f
 1. **Clone this repo**:
 
     ```bash
-    git clone https://github.com/aadirai02/hello-world.git
+    git clone https://github.com/aadirai02/hello-world-sg.git
     cd hello-world
     ```
 
@@ -196,7 +196,6 @@ To reuse this setup in another AWS account and GitHub repo:
 ## 8. Destroy everything 
  It will destroy every k8 resources and infra created by tf.
  
-    ```bash
+  ```bash
     make destroy
-    ```
-
+  ```
