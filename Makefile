@@ -66,42 +66,19 @@ namespace:
 
 k8s-deploy:
 	@echo "📦 Deploying Kubernetes resources to namespace: $(K8S_NAMESPACE)..."
-	sed -i "s|image: .*hello-world:.*|image: $(ECR_URL):$(IMAGE_TAG)|g" $(K8S_DIR)/03-deployment.yaml
 
-	@AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	 AWS_REGION=$(AWS_REGION) \
-	 ECR_REPO=$(ECR_REPO) \
-	 K8S_NAMESPACE=$(K8S_NAMESPACE) \
-	envsubst < $(K8S_DIR)/00-namespace.yaml | kubectl apply -f -
-
-	@AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	 AWS_REGION=$(AWS_REGION) \
-	 ECR_REPO=$(ECR_REPO) \
-	 K8S_NAMESPACE=$(K8S_NAMESPACE) \
-	envsubst < $(K8S_DIR)/01-storageclass.yaml | kubectl apply -f -
-
-	@AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	 AWS_REGION=$(AWS_REGION) \
-	 ECR_REPO=$(ECR_REPO) \
-	 K8S_NAMESPACE=$(K8S_NAMESPACE) \
-	envsubst < $(K8S_DIR)/02-pvc.yaml | kubectl apply -f -
-
-	@AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	 AWS_REGION=$(AWS_REGION) \
-	 ECR_REPO=$(ECR_REPO) \
-	 K8S_NAMESPACE=$(K8S_NAMESPACE) \
-	envsubst < $(K8S_DIR)/03-deployment.yaml | kubectl apply -f -
-
-	@AWS_ACCOUNT_ID=$(AWS_ACCOUNT_ID) \
-	 AWS_REGION=$(AWS_REGION) \
-	 ECR_REPO=$(ECR_REPO) \
-	 K8S_NAMESPACE=$(K8S_NAMESPACE) \
-	envsubst < $(K8S_DIR)/04-service.yaml | kubectl apply -f -
+	@export K8S_NAMESPACE=$(K8S_NAMESPACE); \
+	export IMAGE_URI=$(ECR_URL):$(IMAGE_TAG); \
+	for f in $(K8S_DIR)/*.yaml; do \
+	  envsubst < $$f | kubectl apply -f -; \
+	done
 
 	@echo "⏳ Waiting for rollout..."
 	kubectl rollout status deployment/hello-world -n $(K8S_NAMESPACE) --timeout=300s
+
 	@echo "🌐 LoadBalancer URL:"
-	kubectl get svc hello-world-lb -n $(K8S_NAMESPACE) -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+	kubectl get svc hello-world-lb -n $(K8S_NAMESPACE) \
+	  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 
 
 destroy: k8s-destroy ecr-cleanup terraform-destroy
