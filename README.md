@@ -34,9 +34,13 @@ Once configured, any engineer can fork/clone this repo, adjust a single config f
     cd hello-world
     ```
 
+---
+
+## 3. Create your own GitHub Repo
+Create a new empty repo under your own GitHub account (for example your-user/hello-world).
 
 ---
-## 3. Terraform IAM + OIDC (high level)
+## 4. Terraform IAM + OIDC (high level)
 
 The Terraform in `terraform/` will:
 
@@ -49,13 +53,13 @@ You do not need to hand‑edit `terraform.tfvars`; the Makefile generates it fro
 
 ---
 
-## 4. Edit values config.env
+## 5. Edit values config.env
 
 Edit `config.env`:
 
 ```bash
 === AWS base ===
-AWS_ACCOUNT_ID=123456789012
+AWS_ACCOUNT_ID=<your aws account ID>
 AWS_REGION=us-east-1
 
 === ECR / image ===
@@ -66,15 +70,16 @@ K8S_CLUSTER_NAME=stackgen-eks
 K8S_NAMESPACE=stackgen
 
 === GitHub info (for IAM trust) ===
-GITHUB_OWNER=your-github-username-or-org
-GITHUB_REPO=hello-world
+GITHUB_OWNER=<your-github-username>
+GITHUB_REPO=<github repo name>
 
 DEVELOPER_USER_NAME=your-iam-user-name
 
 ```
+
 ---
 
-## 5. One‑command setup: `make all`
+## 6. One‑command setup: `make all`
 
 From the repo root:
 
@@ -116,11 +121,9 @@ a6041e4abaa254911bffba8b3cfc0aba-a24f40341b311ab3.elb.us-east-1.amazonaws.com
 That hostname is the public URL of the app.
 
 ---
-## 6. Push the code into your own GitHub repo
+## 7. Push the code into your own GitHub repo
 
-1. **Create a new empty repo** under your own GitHub account (for example `your-user/hello-world`).
-
-2. **Point the local clone to your new remote**:
+1. **Point the local clone to your new remote**:
 
     ```bash
     git remote remove origin
@@ -128,12 +131,12 @@ That hostname is the public URL of the app.
     ```
 
 
-3. Set GitHub Actions repository variables
+2. Set GitHub Actions repository variables
 
 In your new GitHub repo:
 
-1. Go to **Settings → Secrets and variables → Actions → Variables**.
-2. Add these **repository variables**, using values matching `config.env`:
+- Go to **Settings → Secrets and variables → Actions → Variables**.
+- Add these **repository variables**, using values matching `config.env`:
 
     | Name             | Example value      |
     |------------------|-------------------|
@@ -153,7 +156,7 @@ GitHub Actions uses these in `.github/workflows/ci-cd.yml`.
 
 
 ---
-## 6. CI/CD pipeline behavior
+## 8. CI/CD pipeline behavior
 
 The workflow `.github/workflows/ci-cd.yml` implements CI/CD:
 
@@ -180,7 +183,7 @@ Once config is set, a push to `main` automatically runs lint → build/scan/push
 
 ---
 
-## 7. How others can reuse this template
+## 9. How others can reuse this template
 
 To reuse this setup in another AWS account and GitHub repo:
 
@@ -193,9 +196,10 @@ To reuse this setup in another AWS account and GitHub repo:
 
 
 
-## 8. Destroy everything 
+## 10. Destroy everything 
  It will destroy every k8 resources and infra created by tf.
- 
+
   ```bash
     make destroy
   ```
+
