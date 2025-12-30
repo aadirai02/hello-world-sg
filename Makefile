@@ -4,7 +4,7 @@
 -include config.env
 
 # === Defaults (overridden by config.env) ===
-AWS_ACCOUNT_ID      ?= 561030001202
+AWS_ACCOUNT_ID      ?= 123456789
 AWS_REGION          ?= us-east-1
 ECR_REPO            ?= hello-world
 K8S_CLUSTER_NAME    ?= stackgen-eks
